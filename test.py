@@ -1,5 +1,5 @@
 import os
-folderNumber = 6
+folderNumber = 4
 numberOfWebcams = 4
 
 ###synchronization
@@ -16,18 +16,29 @@ print(latest)
 print(latestTimeStamp)
 
 #finds the closest starting point
-closestTimeStamps = [0]*numberOfWebcams
+closestImageNumber = [0]*numberOfWebcams
 for i in range(1, numberOfWebcams+ 1):
     if i != latest:
         imageNumber = 1
         timeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + str(imageNumber) + '.jpg')
         distance = abs(latestTimeStamp - timeStamp)
+
         while 1:
+            imageNumber = imageNumber + 1
+            timeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + str(imageNumber) + '.jpg')
+            newDistance = abs(latestTimeStamp - timeStamp)
+            
+
             if newDistance < distance:
                 distance = newDistance
             else:
+                closestImageNumber[i-1] = imageNumber
                 break
 
-                        imageNumber = imageNumber + 1
-            timeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + str(imageNumber) + '.jpg')
-            newDistance = abs(latestTimeStamp - timeStamp)
+#Syncs by renaming
+for i in range(1, numberOfWebcams+1):
+    if i != latest:
+        path = './captures/capture'+ str(folderNumber) + '/' + 'webcam' + str(i) + '/'
+        difference = closestImageNumber[i-1] - 1
+        for i in range(len(os.listdir(path))):
+            os.rename(path + str(i+1) +'.jpg', path + str(i+1-difference) +'.jpg')
