@@ -2,6 +2,8 @@ import cv2
 import os
 import numpy as np
 
+numberOfWebcams = 4
+
 def createFolders():
     if not os.path.exists('./captures/'):
         os.makedirs('./captures/')
@@ -59,25 +61,47 @@ def findLatestWebcam(folderNumber):
 def findFirstWebcam(folderNumber):
     path = './captures/capture'+ str(folderNumber) + '/'
     firstWebcam = 1
-    firstTimeStamp = os.path.getctime(path + 'webcam' + str(firstWebcam) + '/1.jpg')
+    firstTimeStamp = os.path.getmtime(path + 'webcam' + str(firstWebcam) + '/1.jpg')
     for i in range(2, numberOfWebcams + 1):
-        if os.path.getctime(path + 'webcam' + str(i) + '/1.jpg') <= firstTimeStamp:
+        if os.path.getmtime(path + 'webcam' + str(i) + '/1.jpg') <= firstTimeStamp:
             firstWebcam = i
-            firstTimeStamp = os.path.getctime(path + 'webcam' + str(i) + '/' + '1.jpg')
+            firstTimeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + '1.jpg')
     return firstWebcam, firstTimeStamp
-
 
 def calcLatency(folderNumber):
     path = './captures/capture'+ str(folderNumber) + '/'
     firstWebcam, firstTimeStamp = findFirstWebcam(folderNumber)
     latency = [0]*numberOfWebcams
     for i in range(numberOfWebcams):
-        latency[i] = os.path.getctime(path+ 'webcam' + str(i+1) + '/' + '1.jpg') - firstTimeStamp
-
+        latency[i] = os.path.getmtime(path+ 'webcam' + str(i+1) + '/' + '1.jpg') - firstTimeStamp
     return latency
 
+def calcAvgLatency(folderNumber):
+    path = './captures/capture'+ str(folderNumber) + '/'
+    firstWebcam, firstTimeStamp = findFirstWebcam(folderNumber)
+    latency = [0]*numberOfWebcams
+    for i in range(numberOfWebcams):
+        webcamPath = path+ 'webcam' + str(i+1) + '/'
+        for j in range(len(os.listdir(webcamPath))):
+            firstWebcamPath = path + 'webcam' + str(firstWebcam) + '/' + str(j+ 1) +'.jpg'
+            latency[i] = latency[i] + os.path.getmtime(webcamPath + str(j+1) + '.jpg') - os.path.getmtime(firstWebcamPath)
+        latency[i] = latency[i] / len(os.listdir(webcamPath))
+    
+    for i in range(numberOfWebcams):
+        latency[i] = round(latency[i], 3)
+    return latency
+
+def calcAvgDiff(folderNumber):
+    path = './captures/capture'+ str(folderNumber) + '/'
+    avgDiff = [0]*numberOfWebcams
+    for i in range(numberOfWebcams):
+        webcamPath = path + 'webcam' +str(i+1) + '/'
+        avgDiff[i] = os.path.getmtime(webcamPath + '1.jpg') - os.path.getmtime(webcamPath + str(len(os.listdir(webcamPath))) +'.jpg')
+        avgDiff[i] = round(avgDiff[i]/len(os.listdir(webcamPath)), 3)
+    return avgDiff
 
 def sync():
     print('done')
 
-
+print(calcAvgLatency(5))
+print(calcAvgDiff(5))
