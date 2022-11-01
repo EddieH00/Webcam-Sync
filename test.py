@@ -1,44 +1,70 @@
 import os
-folderNumber = 4
-numberOfWebcams = 4
+import time
+import cv2
 
-###synchronization
-#finds which webcam has the latest creation time
-path = './captures/capture'+ str(folderNumber) + '/'
-latest = 1
-latestTimeStamp = os.path.getmtime(path + 'webcam' + str(latest) + '/' + '1.jpg')
-for i in range(2, numberOfWebcams + 1):
-    if os.path.getmtime(path + 'webcam' + str(i) + '/' + '1.jpg') >= latestTimeStamp:
-        latest = i
-        latestTimeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + '1.jpg')
+scenerioOne = ['Scenerio One', 'one', 'two', 'three', 'four']
+scenerioTwo = ['Scenerio Two', 'one', 'two', 'three', 'four']
+scenerioThree = ['Scenerio Three', 'one', 'two', 'three', 'four']
+scenerioFour = ['Scenerio Four', 'one', 'two', 'three', 'four']
+scenerios = [scenerioOne, scenerioTwo, scenerioThree, scenerioFour]
 
-print(latest)
-print(latestTimeStamp)
+print('Enter Name: ')
+name = input()
+print('Select Scenerio: ')
+for i in range(len(scenerios)):
+    print('Enter ' + str(i + 1) +' for ' + scenerios[i][0])
+scenerioNumber = int(input())
 
-#finds the closest starting point
-closestImageNumber = [0]*numberOfWebcams
-for i in range(1, numberOfWebcams+ 1):
-    if i != latest:
-        imageNumber = 1
-        timeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + str(imageNumber) + '.jpg')
-        distance = abs(latestTimeStamp - timeStamp)
+if not os.path.exists('./captures/'):
+    os.makedirs('./captures/')
 
-        while 1:
-            imageNumber = imageNumber + 1
-            timeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + str(imageNumber) + '.jpg')
-            newDistance = abs(latestTimeStamp - timeStamp)
-            
+timeInfo = time.localtime()
+timeFormat = str(timeInfo[0]) + '-' + str(timeInfo[1]) + '-'  + str(timeInfo[2]) + '_' + str(timeInfo[3]) + '-'  + str(timeInfo[4]) 
+currentFolder = name + '_' + scenerios[scenerioNumber-1][0] + '_' + timeFormat
+currentFolder = './captures/' + currentFolder
 
-            if newDistance < distance:
-                distance = newDistance
-            else:
-                closestImageNumber[i-1] = imageNumber
-                break
+os.makedirs(currentFolder)
+for i in range(1, len(scenerios[0])):
+    subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
+    os.makedirs(subfolder)
+    for j in range(1, 5):
+        os.makedirs(subfolder + '/webcam' + str(j))
 
-#Syncs by renaming
-for i in range(1, numberOfWebcams+1):
-    if i != latest:
-        path = './captures/capture'+ str(folderNumber) + '/' + 'webcam' + str(i) + '/'
-        difference = closestImageNumber[i-1] - 1
-        for i in range(len(os.listdir(path))):
-            os.rename(path + str(i+1) +'.jpg', path + str(i+1-difference) +'.jpg')
+webcam1 = cv2.VideoCapture(0)
+webcam2 = cv2.VideoCapture(1)
+webcam3 = cv2.VideoCapture(2)
+webcam4 = cv2.VideoCapture(3)
+
+#junk frames
+ret1, frame1 = webcam1.read()
+ret2, frame2 = webcam2.read()
+ret3, frame3 = webcam3.read()    
+ret4, frame4 = webcam4.read()
+
+imageNumber = 1
+
+for i in range(1, len(scenerios[0])):
+    while(1):
+        print('recording... press space to stop')
+        subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
+        ret1, frame1 = webcam1.read()
+        cv2.imwrite(subfolder + '/webcam1' + str(imageNumber) + '.jpg', frame1)
+
+        ret2, frame2 = webcam2.read()
+        cv2.imwrite(subfolder + '/webcam2/' + str(imageNumber) + '.jpg', frame2)
+
+        ret3, frame3 = webcam3.read()
+        cv2.imwrite(subfolder + '/webcam3' + str(imageNumber) + '.jpg', frame3)
+
+        ret1, frame4 = webcam4.read()
+        cv2.imwrite(subfolder + '/webcam4' + str(imageNumber) + '.jpg', frame4)
+
+        if cv2.waitKey(1) & 0xFF ==ord(' '):
+            print('recording scene done, press space to continue')
+            break
+
+    while(1):
+        if cv2.waitKey(1) & 0xFF ==ord(' '):
+            break
+
+
