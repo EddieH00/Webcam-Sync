@@ -1,32 +1,49 @@
+from threading import currentThread
 import cv2
 import os
+import time
 import numpy as np
 
 numberOfWebcams = 4
+scenerioOne = ['Scenerio One', 'one', 'two', 'three', 'four']
+scenerioTwo = ['Scenerio Two', 'one', 'two', 'three', 'four']
+scenerioThree = ['Scenerio Three', 'one', 'two', 'three', 'four']
+scenerioFour = ['Scenerio Four', 'one', 'two', 'three', 'four']
+scenerios = [scenerioOne, scenerioTwo, scenerioThree, scenerioFour]
 
 #creates folder structure
 #captures > capture1 > webcam1, webcam2 etc.
 #returns the folder number eg. captures > capture9 returns 9
 def createFolders():
+    print('Enter Name: ')
+    name = input()
+    print('Select Scenerio: ')
+    for i in range(len(scenerios)):
+        print('Enter ' + str(i + 1) +' for ' + scenerios[i][0])
+    scenerioNumber = int(input())
+
     if not os.path.exists('./captures/'):
         os.makedirs('./captures/')
 
-    folderNumber = 1
-    while os.path.exists('./captures/capture' + str(folderNumber)):
-        folderNumber = folderNumber + 1
-    os.makedirs('./captures/capture' + str(folderNumber))
+    timeInfo = time.localtime()
+    timeFormat = str(timeInfo[0]) + '-' + str(timeInfo[1]) + '-'  + str(timeInfo[2]) + '_' + str(timeInfo[3]) + '-'  + str(timeInfo[4]) 
+    currentFolder = name + '_' + scenerios[scenerioNumber-1][0] + '_' + timeFormat
+    currentFolder = './captures/' + currentFolder
 
-    for i in range(numberOfWebcams):
-        os.makedirs('./captures/capture' + str(folderNumber) + '/webcam' + str(i+1))
+    os.makedirs(currentFolder)
+    for i in range(1, len(scenerios[0])):
+        subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
+        os.makedirs(subfolder)
+        for j in range(1, 5):
+            os.makedirs(subfolder + '/webcam' + str(j))
 
-    return folderNumber
+    return scenerioNumber, currentFolder
 
 #currently capture is fixed at 4 webcams
 #opens 4 webcams. Saves the frames and displays the live stream.
 #input is the folder number it is capturing to
-def capture(folderNumber, percentResolution):
-    numberOfWebcams = 4
-    print('opening webcams... this could take a minute or two')
+def capture(scenerioNumber, currentFolder):
+    print('webcams are loading, this could take a minute...')
     webcam1 = cv2.VideoCapture(0)
     webcam2 = cv2.VideoCapture(1)
     webcam3 = cv2.VideoCapture(2)
@@ -37,38 +54,38 @@ def capture(folderNumber, percentResolution):
     ret2, frame2 = webcam2.read()
     ret3, frame3 = webcam3.read()    
     ret4, frame4 = webcam4.read()
-    resH = int(frame1.shape[0]*percentResolution)
-    resW = int(frame1.shape[1]*percentResolution)
 
-    imageNumber = 1
-    print('recording at ' + str(resW) + 'x' + str(resH) + ' resolution, press q to stop...')
-    while webcam1.isOpened():
-        ret1, frame1 = webcam1.read()
-        frame1 = cv2.resize(frame1, (resW, resH))
-        cv2.imwrite('./captures/capture' + str(folderNumber) + '/webcam1/' + str(imageNumber)+ '.jpg', frame1)
 
-        ret2, frame2 = webcam2.read()
-        frame2 = cv2.resize(frame2, (resW, resH))
-        cv2.imwrite('./captures/capture' + str(folderNumber) + '/webcam2/' + str(imageNumber)+ '.jpg', frame2)
+    for i in range(1, len(scenerios[0])):
+        imageNumber = 1
+        print('recording ' + scenerios[scenerioNumber-1][i] + '... press q to stop')
+        while webcam1.isOpened():
+            subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
+            ret1, frame1 = webcam1.read()
+            cv2.imwrite(subfolder + '/webcam1/' + str(imageNumber) + '.jpg', frame1)
 
-        ret3, frame3 = webcam3.read()    
-        frame3 = cv2.resize(frame3, (resW, resH))
-        cv2.imwrite('./captures/capture' + str(folderNumber) + '/webcam3/' + str(imageNumber)+ '.jpg', frame3)
+            ret2, frame2 = webcam2.read()
+            cv2.imwrite(subfolder + '/webcam2/' + str(imageNumber) + '.jpg', frame2)
 
-        ret4, frame4 = webcam4.read()
-        frame4 = cv2.resize(frame4, (resW, resH))
-        cv2.imwrite('./captures/capture' + str(folderNumber) + '/webcam4/' + str(imageNumber)+ '.jpg', frame4)
+            ret3, frame3 = webcam3.read()
+            cv2.imwrite(subfolder + '/webcam3/' + str(imageNumber) + '.jpg', frame3)
 
-        horizontal1 = np.concatenate((frame1, frame2), axis=1)
-        horizontal2 = np.concatenate((frame3, frame4), axis=1)
-        image = np.concatenate((horizontal1, horizontal2), axis = 0)
-        cv2.imshow('webcams', image)
-        
-        imageNumber = imageNumber + 1
-        
-        if cv2.waitKey(1) & 0xFF ==ord('q'):
-            print('recording done')
-            break
+            ret1, frame4 = webcam4.read()
+            cv2.imwrite(subfolder + '/webcam4/' + str(imageNumber) + '.jpg', frame4)
+
+            horizontal1 = np.concatenate((frame1, frame2), axis=1)
+            horizontal2 = np.concatenate((frame3, frame4), axis=1)
+            image = np.concatenate((horizontal1, horizontal2), axis = 0)
+            cv2.imshow('webcams', image)
+
+            imageNumber = imageNumber + 1
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                cv2.destroyAllWindows()
+                break
+
+        input("Recording done, press Enter to continue...")
+
 
 
 ##this function looks at the first frame from all four webcams, and determines which image was produced last
@@ -94,9 +111,7 @@ def findFirstWebcam(folderNumber):
             firstTimeStamp = os.path.getmtime(path + 'webcam' + str(i) + '/' + '1.jpg')
     return firstWebcam, firstTimeStamp
 
-def calcAvgLatency(folderNumber):
-    path = './captures/capture'+ str(folderNumber) + '/'
-    #lastWebcam, lastTimeStamp = findLatestWebcam(folderNumber)
+def calcAvgLatency(path):
     latency = [0]*numberOfWebcams
     for i in range(numberOfWebcams):
         webcamPath = path + 'webcam' + str(i+1) + '/'
@@ -109,15 +124,16 @@ def calcAvgLatency(folderNumber):
     
     return latency 
     
-def printLatency(folderNumber):
-    latency = calcAvgLatency(folderNumber)
-    for i in range(len(latency)):
-        latency[i] = round(latency[i], 3)
-        print('latency of webcam ' + str(i + 1) + ' relative to webcam ' +str(numberOfWebcams) +': '  + format(latency[i], '.3f') +' s')
+def printLatency(scenerioNumber, currentFolder):
+    for i in range(1, len(scenerios[0])):
+        path = currentFolder + '/' + scenerios[scenerioNumber-1][i] +'/'    
+        latency = calcAvgLatency(path)
+        for i in range(len(latency)):
+            latency[i] = round(latency[i], 3)
+            print('latency of webcam ' + str(i + 1) + ' relative to webcam ' +str(numberOfWebcams) +': '  + format(latency[i], '.3f') +' s')
 
 
-def calcAvgDiff(folderNumber):
-    path = './captures/capture'+ str(folderNumber) + '/'
+def calcAvgDiff(path):
     avgDiff = [0]*numberOfWebcams
     for i in range(numberOfWebcams):
         webcamPath = path + 'webcam' +str(i+1) + '/'
@@ -127,52 +143,37 @@ def calcAvgDiff(folderNumber):
         avgDiff[i] = avgDiff[i]/len(os.listdir(webcamPath))
     return avgDiff
 
-def printFPS(folderNumber):
-    avgDiff = calcAvgDiff(folderNumber)
-    for i in range(len(avgDiff)):
-        print('Webcam 1: ' + format(1/avgDiff[i], '.3f') +' fps')
+def printFPS(scenerioNumber, currentFolder):
+    for i in range(1, len(scenerios[0])):
+        path = currentFolder + '/' + scenerios[scenerioNumber-1][i] + '/'
+        avgDiff = calcAvgDiff(path)
+        for i in range(len(avgDiff)):
+            print('Webcam ' + str(i+1) + ': ' + format(1/avgDiff[i], '.3f') +' fps')
 
-def sync(folderNumber):
-    avgLatency = calcAvgLatency(folderNumber)
-    avgDiff = calcAvgDiff(folderNumber)
-    changed = [0, 0, 0, 0]
-    for i in range(len(avgDiff)):
-        path = './captures/capture'+ str(folderNumber) + '/webcam' + str(i+1) + '/'
-        numberOfFrames = abs(round(avgLatency[i] / avgDiff[i]))
-        if numberOfFrames != 0:
-            changed[i] = 1
-            print('webcam ' + str(i + 1) + ' synced')
-            for j in range(len(os.listdir(path))):
-                os.rename(path + str(j+1) + '.jpg', path + str(j+1-numberOfFrames) + '.jpg')
+def sync(scenerioNumber, currentFolder):
+    for i in range(1, len(scenerios[0])):
+        path = currentFolder + '/' + scenerios[scenerioNumber-1][i] +'/'
+        avgLatency = calcAvgLatency(path)
+        avgDiff = calcAvgDiff(path)
+        changed = [0, 0, 0, 0]
+        for i in range(len(avgDiff)):
+            path = path + 'webcam' + str(i+1) + '/'
+            numberOfFrames = abs(round(avgLatency[i] / avgDiff[i]))
+            if numberOfFrames != 0:
+                changed[i] = 1
+                print('webcam ' + str(i + 1) + ' synced')
+                for j in range(len(os.listdir(path))):
+                    os.rename(path + str(j+1) + '.jpg', path + str(j+1-numberOfFrames) + '.jpg')
     return changed
 
-def captureTest(folderNumber):
-    numberOfWebcams = 4
-    print('opening webcams... this could take a minute or two')
-    webcam1 = cv2.VideoCapture(0)
-
-
-    imageNumber = 1
-    print('recording, press q to stop...')
-    while webcam1.isOpened():
-        ret1, frame1 = webcam1.read()
-        cv2.imwrite('./captures/capture' + str(folderNumber) + '/webcam1/' + str(imageNumber)+ '.jpg', frame1)
-
-
-        cv2.imshow('webcams', frame1)
-        
-        imageNumber = imageNumber + 1
-        
-        if cv2.waitKey(1) & 0xFF ==ord('q'):
-            break
 
 ###Main
-folderNumber = createFolders()
-capture(folderNumber, 0.5)
-printLatency(folderNumber)
-printFPS(folderNumber)
-sync(folderNumber)
-printLatency(folderNumber)
+scenerioNumber, currentFolder = createFolders()
+capture(scenerioNumber, currentFolder)
+printLatency(scenerioNumber, currentFolder)
+printFPS(scenerioNumber, currentFolder)
+sync(scenerioNumber, currentFolder)
+printLatency(scenerioNumber, currentFolder)
 
 #subject name
 #date time yearmonthday
