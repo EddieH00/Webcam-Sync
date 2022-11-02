@@ -5,11 +5,9 @@ import time
 import numpy as np
 
 numberOfWebcams = 4
-scenerioOne = ['Scenerio One', 'one', 'two', 'three', 'four']
-scenerioTwo = ['Scenerio Two', 'one', 'two', 'three', 'four']
-scenerioThree = ['Scenerio Three', 'one', 'two', 'three', 'four']
-scenerioFour = ['Scenerio Four', 'one', 'two', 'three', 'four']
-scenerios = [scenerioOne, scenerioTwo, scenerioThree, scenerioFour]
+scenerioOne = ['Hands', 'wheel', 'lap', 'ipad', 'air']
+scenerioTwo = ['Gaze', 'one', 'two', 'three', 'four', 'five', 'six', 'seven']
+scenerios = [scenerioOne, scenerioTwo]
 
 #creates folder structure
 #captures > capture1 > webcam1, webcam2 etc.
@@ -31,7 +29,7 @@ def createFolders():
     currentFolder = './captures/' + currentFolder
 
     os.makedirs(currentFolder)
-    for i in range(1, len(scenerios[0])):
+    for i in range(1, len(scenerios[scenerioNumber-1])):
         subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
         os.makedirs(subfolder)
         for j in range(1, 5):
@@ -56,7 +54,7 @@ def capture(scenerioNumber, currentFolder):
     ret4, frame4 = webcam4.read()
 
 
-    for i in range(1, len(scenerios[0])):
+    for i in range(1, len(scenerios[scenerioNumber-1])):
         imageNumber = 1
         print('recording ' + scenerios[scenerioNumber-1][i] + '... press q to stop')
         while webcam1.isOpened():
@@ -144,7 +142,7 @@ def calcAvgDiff(path):
     return avgDiff
 
 def printFPS(scenerioNumber, currentFolder):
-    for i in range(1, len(scenerios[0])):
+    for i in range(1, len(scenerios[scenerioNumber-1])):
         path = currentFolder + '/' + scenerios[scenerioNumber-1][i] + '/'
         avgDiff = calcAvgDiff(path)
         for i in range(len(avgDiff)):
