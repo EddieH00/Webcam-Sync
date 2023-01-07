@@ -58,6 +58,9 @@ def camCapture(webcamNumber, scenerioNumber, currentFolder):
         cv2.imwrite(subfolder + '/webcam' + str(webcamNumber) + '/' + str(imageNumber) + '.jpg', frame)
         cv2.imshow('webcam ' + str(webcamNumber), frame)
         imageNumber += 1
+        global stop_threads
+        if stop_threads:
+            break
         
 #finds the lowest final capture number
 #eg. if webcam1 records 1.jpg, 2.jpg... 89.jpg
@@ -113,9 +116,6 @@ def sync(scenerioNumber, currentFolder):
     return changed
 
 
-
-
-
 def capture(scenerioNumber, currentFolder):
     web1 = webcamThread(0, scenerioNumber, currentFolder)
     web2 = webcamThread(1, scenerioNumber, currentFolder)
@@ -127,6 +127,9 @@ def capture(scenerioNumber, currentFolder):
     web3.start()
     web4.start()
 
+    input("Press Enter to continue...")
+    stop_threads = True
+
+
 scenerioNumber, currentFolder = createFolders()
 capture(scenerioNumber, currentFolder)
-sync(scenerioNumber, currentFolder)
