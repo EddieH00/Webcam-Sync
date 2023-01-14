@@ -115,9 +115,79 @@ def capture(scenerioNumber, currentFolder):
             pauseThreads = False
 
 
+#finds which webcam has the latest timestamp for 1.jpg
+#eg. if webcam 1 has 1.jpg at 12:00:01
+#and webcam 2 has 1.jpg at 12:00:02 
+#the function will return 2
 def lastWebcamToRecord(folder):
-    
+    last = 1
+    lastTimeStamp = os.path.getmtime(folder + 'webcam' + str(last) + '/1.jpg')
+    for i in range(2, 5):
+        if os.path.getmtime(folder + 'webcam' + str(i) + '/1.jpg') >= lastTimeStamp:
+            last = i
+            lastTimeStamp = os.path.getmtime(folder + 'webcam' + str(i) + '/' + '1.jpg')
+    return last
+
+
+#finds which webcam has the earliest recorded last frame
+#eg if webcam 1 ends at 9.jpg at 12:00:01
+#and webcam 2 ends at 7.jph at 12:00:02
+#function will return timestamp 12:00:01
+def firstWebcamToStop(folder):
+    webcamPath = folder + 'webcam1/'
+    lastIndex = sorted(os.listdir(webcamPath), key = len)[-1]
+    firstTimeStamp = os.path.getmtime(webcamPath + lastIndex)
+    for i in range(2, 5):
+        webcamPath = folder + 'webcam' + str(i) + '/'
+        index = sorted(os.listdir(webcamPath), key = len)[-1]
+        timeStamp = os.path.getmtime(webcamPath + index)
+        if timeStamp < firstTimeStamp:
+            firstTimeStamp = timeStamp
+
+    return firstTimeStamp
+
+#input a given timestamp in os.path.getmtime format
+#the function returns the frame in the folder that was captured
+#closest to that time
+#this function just searches linearly, it can definately be optimized with search algorithms
+def closestFrameToTime(folder, time, webcamNumber):
+    subFolder = folder + 'webcam' + str(webcamNumber) +'/'
+    lastIndex = sorted(os.listdir(subFolder), key = len)[-1]
+    lastIndex = int(lastIndex[:-4])
+    closest = 1
+    closestDiff = abs(os.path.getmtime(subFolder + str(closest) + '.jpg') - time)
+    for i in range(lastIndex + 1):
+        diff = abs(os.path.getmtime(subFolder + str(closest) + '.jpg') - time)
+        if diff < closestDiff:
+            closest = i
+            closestDiff = diff
+    return closest
+
+
+def calcAverageLatency(folder):
+    referenceWebcam = lastWebcamToRecord(folder)
+    lastFrame = closestFrameToTime(firstWebcamToStop(folder))
+    latency = [0] * 4
+    for i in range(1, lastFrame + 1):
+        for j in range(1, 5):
+            referenceTime = os.path.getmtime(folder + 'webcam' + str(referenceWebcam) +'/' + str(i) + '.jpg')
+            webTime = os.path.getmtime(folder + 'webcam' + str(j) +'/' + str(i) + '.jpg')
+            latency[j] = latency[j] + (webTime - referenceTime)
+    latency = latency / lastFrame
+    return latency
+
+def findFPS(folder):
+    fps = [0] * 4
+    for i in range(1, 5):
+        subFolder = folder + 'webcam' + str(i) + +'/'
+        first = sorted(os.listdir(subFolder), key = len)[0]
+        last = sorted(os.listdir(subFolder), key = len)[-1]
+        firstTime = os.path.getmtime(subFolder + first)
+        lastTime = os.path.getmtime(subFolder + last)
+        fps[i] = len(os.listdir(subFolder))/((lastTime - firstTime)/1000)
+    return fps
 
 
 scenerioNumber, currentFolder = createFolders()
 capture(scenerioNumber, currentFolder)
+print(findFPS(currentFolder + '/one/'))
