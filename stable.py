@@ -55,12 +55,11 @@ def camCapture(webcamNumber, scenerioNumber, currentFolder):
 
     for i in range(1, len(scenerios[scenerioNumber-1])):
         imageNumber = 1
-        subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][webcamNumber]
-
+        subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
         while webcam.isOpened():
             ret, frame = webcam.read()
             img[webcamNumber] = frame
-            cv2.imwrite(subfolder + '/webcam' + str(webcamNumber) + '/' + str(imageNumber) + '.jpg', frame)
+            cv2.imwrite(subfolder + '/webcam' + str(webcamNumber+1) + '/' + str(imageNumber) + '.jpg', frame)
             imageNumber += 1
 
             if pauseThreads == True:
@@ -179,7 +178,7 @@ def findFPS(folder):
     fps = [0] * 4
     ifps = [0] * 4
     for i in range(1, 5):
-        subFolder = folder + 'webcam' + str(i) + +'/'
+        subFolder = folder + 'webcam' + str(i) +'/'
         first = sorted(os.listdir(subFolder), key = len)[0]
         last = sorted(os.listdir(subFolder), key = len)[-1]
         firstTime = os.path.getmtime(subFolder + first)
@@ -206,5 +205,5 @@ def sync(scenerioNumber, currentFolder):
 
 scenerioNumber, currentFolder = createFolders()
 capture(scenerioNumber, currentFolder)
-fps, ifps = findFPS(currentFolder + '/one/')
+fps, ifps = findFPS(currentFolder + '/wheel/')
 print(fps)
