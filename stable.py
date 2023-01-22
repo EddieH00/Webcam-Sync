@@ -183,8 +183,8 @@ def findFPS(folder):
         last = sorted(os.listdir(subFolder), key = len)[-1]
         firstTime = os.path.getmtime(subFolder + first)
         lastTime = os.path.getmtime(subFolder + last)
-        fps[i] = len(os.listdir(subFolder))/((lastTime - firstTime)/1000)
-        ifps[i] = 1/fps[i]
+        fps[i-1] = len(os.listdir(subFolder))/((lastTime - firstTime))
+        ifps[i-1] = 1/fps[i-1]
     return fps, ifps
 
 def sync(scenerioNumber, currentFolder):
