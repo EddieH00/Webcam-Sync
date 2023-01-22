@@ -153,8 +153,10 @@ def camCapture(webcamNumber, scenerioNumber, currentFolder):
 
         while webcam.isOpened():
             ret, frame = webcam.read()
-            img[webcamNumber] = frame
-            cv2.imwrite(subfolder + '/webcam' + str(webcamNumber) + '/' + str(imageNumber) + '.jpg', frame)
+            if ret is True:
+                img[webcamNumber] = frame
+                cv2.imwrite(subfolder + '/webcam' + str(webcamNumber) + '/' + str(imageNumber) + '.jpg', frame)
+
             imageNumber += 1
 
             if pauseThreads == True:
@@ -190,19 +192,22 @@ def capture(scenerioNumber, currentFolder):
         manager.register_event_callback(on_event, renderer)
         scene = 1
         
-        image = np.zeros(960, 1920, 3)
+        image = np.zeros((960, 1920, 3), dtype='uint8')
+        imgt = np.zeros((156,206,4), dtype='uint8')
         while scene != len(scenerios[scenerioNumber-1]):
             print('Press q to finish recording ' + str(scenerios[scenerioNumber-1][scene]))
             while(1):
-
+                
                 with renderer.frame_condition:
                     if renderer.frame_condition.wait(150.0 / 1000.0):
                         imgt = renderer.frame.data
 
                 image[0:480, 0:640, :] = img[0]
                 image[0:480, 640:1280, :] = img[1]
+                imgt_rescaled = cv2.resize(imgt, dsize=(640, 480))
+                image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
                 image[480:960, 320:960, :] = img[2]
-                image[480:960, 960:1280, :] = img[3]
+                image[480:960, 960:1600, :] = img[3]
                 cv2.imshow('webcams', image)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
