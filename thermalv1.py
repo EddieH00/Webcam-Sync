@@ -173,7 +173,13 @@ def camCapture(webcamNumber, scenerioNumber, currentFolder):
         while pauseThreads == True:
             pass
 
-        
+def timer(scenerioNumber):
+    for i in range(1, len(scenerios[scenerioNumber-1])):
+        time.sleep(10)
+        pauseThreads = True
+        while pauseThreads is True:
+            pass
+
 def capture(scenerioNumber, currentFolder):
     global img
     img = np.zeros((4, 480, 640, 3), dtype='uint8')
@@ -187,6 +193,7 @@ def capture(scenerioNumber, currentFolder):
     web2 = webcamThread(1, scenerioNumber, currentFolder)
     web3 = webcamThread(2, scenerioNumber, currentFolder)
     web4 = webcamThread(3, scenerioNumber, currentFolder)
+    timerThread = Thread(target=timer)
 
     web1.start()
     web2.start()
@@ -207,9 +214,9 @@ def capture(scenerioNumber, currentFolder):
             pass
     
         start = True
+        timerThread.start()
         while scene != len(scenerios[scenerioNumber-1]):
             tempNumber = 1
-            print('Press q to finish recording ' + str(scenerios[scenerioNumber-1][scene]))
             while(1):
                 
                 with renderer.frame_condition:
@@ -233,10 +240,10 @@ def capture(scenerioNumber, currentFolder):
 
                 cv2.imshow('webcams', image)
                 cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
-
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                cv2.waitKey(0)
+                
+                if pauseThreads is True:
                     cv2.destroyAllWindows()
-                    pauseThreads = True
                     scene += 1
                     break
                     
