@@ -48,7 +48,8 @@ def on_frame(_camera, camera_frame, renderer):
         renderer.frame_condition.notify()
 
 
-def on_event(camera, event_type, event_status, _user_data):
+
+def on_event(camera, event_type, event_status, renderer):
     """Async callback fired whenever a camera event occurs.
 
     Parameters
@@ -60,27 +61,43 @@ def on_event(camera, event_type, event_status, _user_data):
     event_status: Optional[SeekCameraError]
         Optional exception type. It will be a non-None derived instance of
         SeekCameraError if the event_type is SeekCameraManagerEvent.ERROR.
-    _user_data: None
+    renderer: Renderer
         User defined data passed to the callback. This can be anything
-        but in this case it is None.
+        but in this case it is a reference to the Renderer object.
     """
     print("{}: {}".format(str(event_type), camera.chipid))
 
     if event_type == SeekCameraManagerEvent.CONNECT:
-        # Open a new CSV file with the unique camera chip ID embedded.
-        try:
-            file = open("thermography-" + camera.chipid + ".csv", "w")
-        except OSError as e:
-            print("Failed to open file: %s" % str(e))
+        if renderer.busy:
             return
 
-        # Start streaming data and provide a custom callback to be called
+        # Claim the renderer.
+        # This is required in case of multiple cameras.
+        renderer.busy = True
+        renderer.camera = camera
+
+        # Indicate the first frame has not come in yet.
+        # This is required to properly resize the rendering window.
+        renderer.first_frame = True
+
+        # Set a custom color palette.
+        # Other options can set in a similar fashion.
+        camera.color_palette = SeekCameraColorPalette.TYRIAN
+
+        # Start imaging and provide a custom callback to be called
         # every time a new frame is received.
-        camera.register_frame_available_callback(on_frame, file)
+        camera.register_frame_available_callback(on_frame, renderer)
         camera.capture_session_start(SeekCameraFrameFormat.THERMOGRAPHY_FLOAT)
 
     elif event_type == SeekCameraManagerEvent.DISCONNECT:
-        camera.capture_session_stop()
+        # Check that the camera disconnecting is one actually associated with
+        # the renderer. This is required in case of multiple cameras.
+        if renderer.camera == camera:
+            # Stop imaging and reset all the renderer state.
+            camera.capture_session_stop()
+            renderer.camera = None
+            renderer.frame = None
+            renderer.busy = False
 
     elif event_type == SeekCameraManagerEvent.ERROR:
         print("{}: {}".format(str(event_status), camera.chipid))
@@ -90,7 +107,7 @@ def on_event(camera, event_type, event_status, _user_data):
 
 #first item in each scenerio should be the name of the scenerio 
 scenerioOne = ['Hands', 'wheel', 'lap', 'ipad', 'air']
-scenerioTwo = ['Gaze', 'one', 'two', 'three', 'four', 'five', 'six', 'seven']
+scenerioTwo = ['Gaze', 'straight', 'left mirror', 'right mirror', 'rearview mirror', 'left window', 'right window', 'ipad']
 scenerios = [scenerioOne, scenerioTwo]
 
 
@@ -132,6 +149,11 @@ class webcamThread(Thread):
 def camCapture(webcamNumber, scenerioNumber, currentFolder):
     webcam = cv2.VideoCapture(webcamNumber)
     ret, frame = webcam.read()
+    img[webcamNumber] = frame
+
+    print('webcam ' + str(webcamNumber) + ' ready')
+    while start is False:
+        pass
 
     for i in range(1, len(scenerios[scenerioNumber-1])):
         imageNumber = 1
@@ -157,6 +179,8 @@ def capture(scenerioNumber, currentFolder):
     img = np.zeros((4, 480, 640, 3), dtype='uint8')
 
     global pauseThreads
+    global start
+    start = False
     pauseThreads = False
 
     web1 = webcamThread(0, scenerioNumber, currentFolder)
@@ -169,35 +193,46 @@ def capture(scenerioNumber, currentFolder):
     web3.start()
     web4.start()
 
-    while not img[0].any():
-        pass
+    print('webcams are loading up...')
 
     with SeekCameraManager(SeekCameraIOType.USB) as manager:
         # Start listening for events.
         renderer = Renderer()
         manager.register_event_callback(on_event, renderer)
         scene = 1
-        
         image = np.zeros((960, 1920, 3), dtype='uint8')
-        imgt = np.zeros((156,206), dtype='uint8')
+        imgtemps = np.zeros((156,206), dtype='uint8')
+        
+        while not (img[0].any() and img[1].any() and img[2].any() and img[3].any()):
+            pass
+    
+        start = True
         while scene != len(scenerios[scenerioNumber-1]):
+            tempNumber = 1
             print('Press q to finish recording ' + str(scenerios[scenerioNumber-1][scene]))
             while(1):
                 
                 with renderer.frame_condition:
                     if renderer.frame_condition.wait(150.0 / 1000.0):
-                        imgt = renderer.frame.data
-
-                imgc = cv2.applyColorMap(imgt, cv2.COLORMAP_JET)
+                        imgtemps = renderer.frame.data
+                        file = open(currentFolder + '/' + scenerios[scenerioNumber-1][scene] + '/seek_temperatures/' + str(tempNumber) + '.csv', 'w')
+                        np.savetxt(file, imgtemps, fmt="%.1f")
+                        imgu8 = ((imgtemps-10)*256/40).astype(np.uint8)
+                        imgjpg = cv2.applyColorMap(imgu8, cv2.COLORMAP_JET)
+                        imgt_rescaled = cv2.resize(imgjpg, dsize=(640, 480))
+                        cv2.imwrite(currentFolder + '/' + scenerios[scenerioNumber-1][scene] + '/seek_jpg/' + str(tempNumber) + '.jpg', imgt_rescaled)
+                        image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
+                        tempNumber = tempNumber + 1
 
 
                 image[0:480, 0:640, :] = img[0]
                 image[0:480, 640:1280, :] = img[1]
-                imgt_rescaled = cv2.resize(imgc, dsize=(640, 480))
-                image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
+
                 image[480:960, 320:960, :] = img[2]
                 image[480:960, 960:1600, :] = img[3]
+
                 cv2.imshow('webcams', image)
+                cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     cv2.destroyAllWindows()
@@ -215,3 +250,8 @@ def capture(scenerioNumber, currentFolder):
 
 scenerioNumber, currentFolder = createFolders()
 capture(scenerioNumber, currentFolder)
+#opencv2 on top
+#automatically q quit
+#timer 10 seconds
+#playback laggy? idk
+#don't stop between hands and gaze
