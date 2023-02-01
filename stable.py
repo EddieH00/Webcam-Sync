@@ -106,47 +106,43 @@ def on_event(camera, event_type, event_status, renderer):
         return
 
 #first item in each scenerio should be the name of the scenerio 
-scenerioOne = ['Hands', 'wheel', 'lap', 'ipad', 'air']
-scenerioTwo = ['Gaze', 'one', 'two', 'three', 'four', 'five', 'six', 'seven']
-scenerios = [scenerioOne, scenerioTwo]
-
+hands = ['hands wheel', 'hands lap', 'hands ipad', 'hands air']
+gazeone = ['gaze straight', 'gaze left mirror', 'gaze right mirror', ' gaze rearview mirror']
+gazetwo = ['gaze left window', 'gaze right window', 'gaze ipad']
+scenerios = hands + gazeone + gazetwo
 
 def createFolders():
     name = input('Enter Name: ')
-    for i in range(len(scenerios)):
-        print('Enter ' + str(i + 1) +' for ' + scenerios[i][0])
-    scenerioNumber = int(input())
 
     if not os.path.exists('./captures/'):
         os.makedirs('./captures/')
 
     timeInfo = time.localtime()
     timeFormat = str(timeInfo[0]) + '-' + str(timeInfo[1]) + '-'  + str(timeInfo[2]) + '_' + str(timeInfo[3]) + '-'  + str(timeInfo[4]) 
-    currentFolder = name + '_' + scenerios[scenerioNumber-1][0] + '_' + timeFormat
+    currentFolder = name + '_' + timeFormat
     currentFolder = './captures/' + currentFolder
 
     os.makedirs(currentFolder)
-    for i in range(1, len(scenerios[scenerioNumber-1])):
-        subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
+    for i in range(len(scenerios)):
+        subfolder = currentFolder + '/' + scenerios[i]
         os.makedirs(subfolder)
         for j in range(1, 5):
             os.makedirs(subfolder + '/webcam' + str(j))
         os.makedirs(subfolder + '/seek_jpg/')
         os.makedirs(subfolder+ '/seek_temperatures/')
 
-    return scenerioNumber, currentFolder
+    return currentFolder
 
 
 class webcamThread(Thread):
-    def __init__(self, webcamNumber, scenerioNumber, currentFolder):
+    def __init__(self, webcamNumber, currentFolder):
         Thread.__init__(self)
         self.webcamNumber = webcamNumber
-        self.scenerioNumber = scenerioNumber
         self.currentFolder = currentFolder
     def run(self):
-        camCapture(self.webcamNumber, self.scenerioNumber, self.currentFolder)
+        camCapture(self.webcamNumber, self.currentFolder)
 
-def camCapture(webcamNumber, scenerioNumber, currentFolder):
+def camCapture(webcamNumber, currentFolder):
     webcam = cv2.VideoCapture(webcamNumber)
     ret, frame = webcam.read()
     img[webcamNumber] = frame
@@ -155,9 +151,9 @@ def camCapture(webcamNumber, scenerioNumber, currentFolder):
     while start is False:
         pass
 
-    for i in range(1, len(scenerios[scenerioNumber-1])):
+    for i in range(len(scenerios)):
         imageNumber = 1
-        subfolder = currentFolder + '/' + scenerios[scenerioNumber-1][i]
+        subfolder = currentFolder + '/' + scenerios[i]
 
         while webcam.isOpened():
             ret, frame = webcam.read()
@@ -173,8 +169,15 @@ def camCapture(webcamNumber, scenerioNumber, currentFolder):
         while pauseThreads == True:
             pass
 
-        
-def capture(scenerioNumber, currentFolder):
+def timer():
+    global pauseThreads
+    for i in range(len(scenerios)):
+        time.sleep(10)
+        pauseThreads = True
+        while pauseThreads is True:
+            pass
+
+def capture(currentFolder):
     global img
     img = np.zeros((4, 480, 640, 3), dtype='uint8')
 
@@ -183,23 +186,24 @@ def capture(scenerioNumber, currentFolder):
     start = False
     pauseThreads = False
 
-    web1 = webcamThread(0, scenerioNumber, currentFolder)
-    web2 = webcamThread(1, scenerioNumber, currentFolder)
-    web3 = webcamThread(2, scenerioNumber, currentFolder)
-    web4 = webcamThread(3, scenerioNumber, currentFolder)
+    web1 = webcamThread(0, currentFolder)
+    web2 = webcamThread(1, currentFolder)
+    web3 = webcamThread(2, currentFolder)
+    web4 = webcamThread(3, currentFolder)
+    timerThread = Thread(target=timer)
 
     web1.start()
     web2.start()
     web3.start()
     web4.start()
 
-    print('webcams are loading up...')
+    print('webcams are loading up... get ready for: ' + scenerios[0])
 
     with SeekCameraManager(SeekCameraIOType.USB) as manager:
         # Start listening for events.
         renderer = Renderer()
         manager.register_event_callback(on_event, renderer)
-        scene = 1
+        scene = 0
         image = np.zeros((960, 1920, 3), dtype='uint8')
         imgtemps = np.zeros((156,206), dtype='uint8')
         
@@ -207,20 +211,20 @@ def capture(scenerioNumber, currentFolder):
             pass
     
         start = True
-        while scene != len(scenerios[scenerioNumber-1]):
+        timerThread.start()
+        while scene != len(scenerios):
             tempNumber = 1
-            print('Press q to finish recording ' + str(scenerios[scenerioNumber-1][scene]))
             while(1):
                 
                 with renderer.frame_condition:
                     if renderer.frame_condition.wait(150.0 / 1000.0):
                         imgtemps = renderer.frame.data
-                        file = open(currentFolder + '/' + scenerios[scenerioNumber-1][scene] + '/seek_temperatures/' + str(tempNumber) + '.csv', 'w')
+                        file = open(currentFolder + '/' + scenerios[scene] + '/seek_temperatures/' + str(tempNumber) + '.csv', 'w')
                         np.savetxt(file, imgtemps, fmt="%.1f")
-                        imgu8 = (imgtemps*256/50).astype(np.uint8)
+                        imgu8 = ((imgtemps-10)*256/40).astype(np.uint8)
                         imgjpg = cv2.applyColorMap(imgu8, cv2.COLORMAP_JET)
                         imgt_rescaled = cv2.resize(imgjpg, dsize=(640, 480))
-                        cv2.imwrite(currentFolder + '/' + scenerios[scenerioNumber-1][scene] + '/seek_jpg/' + str(tempNumber) + '.jpg', imgt_rescaled)
+                        cv2.imwrite(currentFolder + '/' + scenerios[scene] + '/seek_jpg/' + str(tempNumber) + '.jpg', imgt_rescaled)
                         image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
                         tempNumber = tempNumber + 1
 
@@ -233,20 +237,25 @@ def capture(scenerioNumber, currentFolder):
 
                 cv2.imshow('webcams', image)
                 cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
-
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                cv2.waitKey(1)
+                
+                if pauseThreads is True:
                     cv2.destroyAllWindows()
-                    pauseThreads = True
                     scene += 1
                     break
                     
-            if scene == len(scenerios[scenerioNumber-1]):
+            if scene == len(scenerios):
                 input("Press Enter to finish")
                 pauseThreads = False
             else:
-                input("Press Enter to record " + scenerios[scenerioNumber-1][scene])
+                input("Press Enter to record " + scenerios[scene])
                 pauseThreads = False
 
-
-scenerioNumber, currentFolder = createFolders()
-capture(scenerioNumber, currentFolder)
+#print(scenerios)
+currentFolder = createFolders()
+capture(currentFolder)
+#opencv2 on top
+#automatically q quit
+#timer 10 seconds
+#playback laggy? idk
+#don't stop between hands and gaze
