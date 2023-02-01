@@ -174,6 +174,7 @@ def camCapture(webcamNumber, scenerioNumber, currentFolder):
             pass
 
 def timer(scenerioNumber):
+    global pauseThreads
     for i in range(1, len(scenerios[scenerioNumber-1])):
         time.sleep(10)
         pauseThreads = True
@@ -193,7 +194,7 @@ def capture(scenerioNumber, currentFolder):
     web2 = webcamThread(1, scenerioNumber, currentFolder)
     web3 = webcamThread(2, scenerioNumber, currentFolder)
     web4 = webcamThread(3, scenerioNumber, currentFolder)
-    timerThread = Thread(target=timer)
+    timerThread = Thread(target=timer, args=(scenerioNumber,))
 
     web1.start()
     web2.start()
@@ -240,7 +241,7 @@ def capture(scenerioNumber, currentFolder):
 
                 cv2.imshow('webcams', image)
                 cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
-                cv2.waitKey(0)
+                cv2.waitKey(1)
                 
                 if pauseThreads is True:
                     cv2.destroyAllWindows()
