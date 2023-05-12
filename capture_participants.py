@@ -12,6 +12,8 @@ CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
+input_device = 4 
+
 from seekcamera import (
     SeekCameraIOType,
     SeekCameraColorPalette,
@@ -175,7 +177,8 @@ def record():
                     channels=CHANNELS,
                     rate=RATE,
                     input=True,
-                    frames_per_buffer=CHUNK)
+                    frames_per_buffer=CHUNK,
+                    input_device_index = input_device)
 
     print("Start recording")
 
@@ -278,9 +281,6 @@ def capture(folders):
                     pauseThreads = False 
                 else:
                     break
-
-        
-        
 
 
 folders = createFolders()

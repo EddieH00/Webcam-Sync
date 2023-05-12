@@ -45,7 +45,6 @@ def getClosestFrame(timestamps, timestamp):
 
 
 
-
 def sync(folder, start, end, fps):
     '''
     takes a folder of sequences and creates a synchronized copy
@@ -60,10 +59,22 @@ def sync(folder, start, end, fps):
 
     for subFolder in os.listdir(folder):
     #subFolder are ./folder/air or ./folder/hands
+        if not os.path.isdir(folder + subFolder):
+        #checks to make sure the dir is a folder, and not a file
+            continue
+
+        if subFolder[-6:] == 'synced':
+        #skips synchronized folders
+            continue
+
         syncedFolder = folder + subFolder + '_synced'
         if not os.path.exists(syncedFolder):
+            #checks to see if the desired folder already exists
             os.makedirs(syncedFolder)
-        
+        else:
+            print(syncedFolder + " already exists")
+            continue
+
         #syncedCams = []
         for camSubFolder in os.listdir(folder+subFolder):
             currentFolder = folder + subFolder +'/' +camSubFolder +'/'
@@ -112,4 +123,5 @@ def changeFPS(folder, newLast, newFolder):
 #sync("./captures/Akshay_drive_new_2023-2-23_12-21/", 1677184118188668600, 1677184118188668600+120.714*1000000000, 30.01061344 )
 #folder = './captures/Akshay_drive_new_2023-2-23_12-21_2/driving/webcam1/'
 #timestamps = createGlobalList(folder)
-changeFPS('./captures/Akshay_drive_new_2023-2-23_12-21/driving/simulator/', 3623, './captures/Akshay_drive_new_2023-2-23_12-21/driving_synced/simulator_synced/')
+#changeFPS('./captures/Akshay_drive_new_2023-2-23_12-21/driving/simulator/', 3623, './captures/Akshay_drive_new_2023-2-23_12-21/driving_synced/simulator_synced/')
+sync("./captures/Akshay_drive_new_2023-2-23_12-21/", 1677184118188668600, 1677184118188668600+120.714*1000000000, 30.01061344 )

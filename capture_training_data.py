@@ -250,11 +250,5 @@ def capture(currentFolder):
                 input("Press Enter to record " + scenerios[scene])
                 pauseThreads = False
 
-#print(scenerios)
 currentFolder = createFolders()
 capture(currentFolder)
-#opencv2 on top
-#automatically q quit
-#timer 10 seconds
-#playback laggy? idk
-#don't stop between hands and gaze
