@@ -7,6 +7,7 @@ import pyaudio
 import wave
 import random
 import string
+import keyboard
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
@@ -75,9 +76,10 @@ def on_event(camera, event_type, event_status, renderer):
         User defined data passed to the callback. This can be anything
         but in this case it is a reference to the Renderer object.
     """
-    print("{}: {}".format(str(event_type), camera.chipid))
+    #print("{}: {}".format(str(event_type), camera.chipid))
 
     if event_type == SeekCameraManagerEvent.CONNECT:
+        print("Thermal camera ready")
         if renderer.busy:
             return
 
@@ -117,7 +119,7 @@ def on_event(camera, event_type, event_status, renderer):
 
 #first item in each scenerio should be the name of the scenerio 
 
-#returns in format [./currentfolder/one/, ./currentfolder/two/, ./currentfolder]
+#returns in format [./currentfolder/one/, ./currentfolder/two/, ./currentfolder/]
 def createFolders():
     name = input('Enter participant name: ')
     if not os.path.exists('./captures/'):
@@ -137,7 +139,8 @@ def createFolders():
         os.makedirs(subfolder + 'seek_jpg/')
         os.makedirs(subfolder+ 'seek_temperatures/')
     folders = [currentFolder+x for x in folders]
-    return folders.append(currentFolder)
+    folders.append(currentFolder)
+    return folders
 
 
 class webcamThread(Thread):
@@ -152,23 +155,27 @@ def camCapture(webcamNumber, folders):
     ret, frame = webcam.read()
     img[webcamNumber] = frame
 
-    print('webcam ' + str(webcamNumber) + ' ready')
-    while start is False:
-        pass
+    print('webcam ' + str(webcamNumber + 1) + ' ready')
+
     
     for i in range(len(folders)-1):
+        if start is False:
+            while start is False:
+                pass
+        if start is True and pauseThreads == True:
+            while pauseThreads == True:
+                pass
         while webcam.isOpened():
             ret, frame = webcam.read()
             if ret is True:
                 img[webcamNumber] = frame
                 imgName = str(time.time_ns()) +'.jpg'
-                cv2.imwrite(folders[0] +'webcam' + str(webcamNumber+1) + '/' + imgName, frame)
+                cv2.imwrite(folders[i] +'webcam' + str(webcamNumber+1) + '/' + imgName, frame)
 
             if pauseThreads == True:
                 break
     
-        while pauseThreads == True:
-            pass
+
 
 def record():
     p = pyaudio.PyAudio()
@@ -179,11 +186,7 @@ def record():
                     input=True,
                     frames_per_buffer=CHUNK,
                     input_device_index = input_device)
-
-    print("Start recording")
-
     frames = []
-
     try:
         while True:
             data = stream.read(CHUNK)
@@ -230,7 +233,8 @@ def capture(folders):
     web3.start()
     web4.start()
 
-    print('webcams are loading up...')
+    print('please wait for the webcams to open...')
+
     first = True
     with SeekCameraManager(SeekCameraIOType.USB) as manager:
         # Start listening for events.
@@ -241,20 +245,23 @@ def capture(folders):
         
         while not (img[0].any() and img[1].any() and img[2].any() and img[3].any()):
             pass
-    
+
+        print('webcams ready. After the cameras open, press \'q\' to stop recording')
+        input("Press Enter to start recording")
+
         start = True
         while(1):
             with renderer.frame_condition:
                 if renderer.frame_condition.wait(150.0 / 1000.0):
                     imgtemps = renderer.frame.data
-                    capTime = time.time_ns
+                    capTime = time.time_ns()
                     imgName = str(capTime) +'.jpg'
-                    file = open(folders[0] + '/seek_temperatures/' + str(capTime) + '.csv', 'w')
+                    file = open(folders[0] + 'seek_temperatures/' + str(capTime) + '.csv', 'w')
                     np.savetxt(file, imgtemps, fmt="%.1f")
                     imgu8 = ((imgtemps-10)*256/40).astype(np.uint8)
                     imgjpg = cv2.applyColorMap(imgu8, cv2.COLORMAP_JET)
                     imgt_rescaled = cv2.resize(imgjpg, dsize=(640, 480))
-                    cv2.imwrite(folders[0] + '/seek_jpg/' + imgName, imgt_rescaled)
+                    cv2.imwrite(folders[0] + 'seek_jpg/' + imgName, imgt_rescaled)
                     image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
 
             image[0:480, 0:640, :] = img[0]
@@ -265,19 +272,21 @@ def capture(folders):
 
             cv2.imshow('webcams', image)
             cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
+            cv2.waitKey(1)
             
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if keyboard.is_pressed('q'):  
                 cv2.destroyAllWindows()
                 pauseThreads = True
                 if first:
                     first = False
-                    input("Press Enter to start recording")
+                    print("Recording done.")
+                    input("Press Enter to start recording audio")
                     print("Microphone is activated, recording...")
                     print('Press Ctrl+C to stop the recording')
                     res = folders[-1] +'audio'
                     record_to_file(res + '.wav')
                     print("Result written to " + str(res) + ".wav")
-                    print('#' * 80)
+                    input('Press Enter to record the driving session')
                     pauseThreads = False 
                 else:
                     break
