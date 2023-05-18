@@ -145,38 +145,37 @@ def createFolders():
     return folders
 
 
+#webcamThread captures a webcam to the folder and then closes
 class webcamThread(Thread):
-    def __init__(self, webcamNumber, folders):
+    def __init__(self, webcamNumber, folder):
         Thread.__init__(self)
         self.webcamNumber = webcamNumber
-        self.folders = folders
+        self.folder = folder
     def run(self):
-        camCapture(self.webcamNumber, self.folders)
-def camCapture(webcamNumber, folders):
+        camCapture(self.webcamNumber, self.folder)
+def camCapture(webcamNumber, folder):
     webcam = cv2.VideoCapture(webcamNumber)
     ret, frame = webcam.read()
     img[webcamNumber] = frame
 
     print('webcam ' + str(webcamNumber + 1) + ' ready')
-
     
-    for i in range(len(folders)-1):
-        if start is False:
-            while start is False:
-                pass
-        if start is True and pauseThreads == True:
-            while pauseThreads == True:
-                pass
-        while webcam.isOpened():
-            ret, frame = webcam.read()
-            if ret is True:
-                img[webcamNumber] = frame
-                imgName = str(time.time_ns()) +'.jpg'
-                cv2.imwrite(folders[i] +'webcam' + str(webcamNumber+1) + '/' + imgName, frame)
+    #start is a global variable to stop one webcam from recording if the others are not ready
+    if start is False:
+        while start is False:
+            pass
 
-            if pauseThreads == True:
-                break
-    
+    while webcam.isOpened():
+        ret, frame = webcam.read()
+        if ret is True:
+            img[webcamNumber] = frame
+            imgName = str(time.time_ns()) +'.jpg'
+            cv2.imwrite(folder +'webcam' + str(webcamNumber+1) + '/' + imgName, frame)
+
+        #stop recording is a global variable used to control the webcam threads
+        if stopRecording == True:
+            break
+
 
 
 def record():
@@ -219,85 +218,79 @@ def record_to_file(file_path):
     wf.close()
 
 def capture(folders):
+    #img is a global np array to capture all webcam footage
     global img
-    img = np.zeros((4, 480, 640, 3), dtype='uint8')
-
-    global pauseThreads
+    global stopRecording
     global start
-    start = False
-    pauseThreads = False
 
-    web1 = webcamThread(0, folders)
-    web2 = webcamThread(1, folders)
-    web3 = webcamThread(2, folders)
-    web4 = webcamThread(3, folders)
+     #for loop to record enter simulator, and driving capture   
+    for recordingRound in range(2):
+        img = np.zeros((4, 480, 640, 3), dtype='uint8')
+        start = False
+        stopRecording = False
 
-    web1.start()
-    web2.start()
-    web3.start()
-    web4.start()
+        web1 = webcamThread(0, folders[recordingRound])
+        web2 = webcamThread(1, folders[recordingRound])
+        web3 = webcamThread(2, folders[recordingRound])
+        web4 = webcamThread(3, folders[recordingRound])
 
-    print('please wait for the webcams to open...')
+        web1.start()
+        web2.start()
+        web3.start()
+        web4.start()
 
-    folderNumber = 0 #to control which folder seek stores thermal images in
-    first = True
-    with SeekCameraManager(SeekCameraIOType.USB) as manager:
-        # Start listening for events.
-        renderer = Renderer()
-        manager.register_event_callback(on_event, renderer)
-        image = np.zeros((960, 1920, 3), dtype='uint8')
-        imgtemps = np.zeros((156,206), dtype='uint8')
-        
-        #this line waits for all the webcams to load an image to proceed
-        while not (img[0].any() and img[1].any() and img[2].any() and img[3].any()):
-            pass
+        print('please wait for the webcams to open...')
+        with SeekCameraManager(SeekCameraIOType.USB) as manager:
+            # Start listening for events.
+            renderer = Renderer()
+            manager.register_event_callback(on_event, renderer)
+            image = np.zeros((960, 1920, 3), dtype='uint8')
+            imgtemps = np.zeros((156,206), dtype='uint8')
+            
+            #this line waits for all the webcams to load an image to proceed
+            while not (img[0].any() and img[1].any() and img[2].any() and img[3].any()):
+                pass
 
-        print('webcams ready. After the cameras open, click on the window, and then press \'q\' to stop recording')
-        input("Press Enter to start recording")
+            print('webcams ready. After the cameras open, click on the window, and then press \'q\' to stop recording')
+            input("Press Enter to start recording")
 
-        start = True
-        while(1):
-            with renderer.frame_condition:
-                if renderer.frame_condition.wait(150.0 / 1000.0):
-                    imgtemps = renderer.frame.data
-                    capTime = time.time_ns()
-                    imgName = str(capTime) +'.jpg'
-                    file = open(folders[folderNumber] + 'seek_temperatures/' + str(capTime) + '.csv', 'w')
-                    np.savetxt(file, imgtemps, fmt="%.1f")
-                    imgu8 = ((imgtemps-10)*256/40).astype(np.uint8)
-                    imgjpg = cv2.applyColorMap(imgu8, cv2.COLORMAP_JET)
-                    imgt_rescaled = cv2.resize(imgjpg, dsize=(640, 480))
-                    cv2.imwrite(folders[folderNumber] + 'seek_jpg/' + imgName, imgt_rescaled)
-                    image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
+            start = True
+            while(1):
+                with renderer.frame_condition:
+                    if renderer.frame_condition.wait(150.0 / 1000.0):
+                        imgtemps = renderer.frame.data
+                        capTime = time.time_ns()
+                        imgName = str(capTime) +'.jpg'
+                        file = open(folders[recordingRound] + 'seek_temperatures/' + str(capTime) + '.csv', 'w')
+                        np.savetxt(file, imgtemps, fmt="%.1f")
+                        imgu8 = ((imgtemps-10)*256/40).astype(np.uint8)
+                        imgjpg = cv2.applyColorMap(imgu8, cv2.COLORMAP_JET)
+                        imgt_rescaled = cv2.resize(imgjpg, dsize=(640, 480))
+                        cv2.imwrite(folders[recordingRound] + 'seek_jpg/' + imgName, imgt_rescaled)
+                        image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
 
-            image[0:480, 0:640, :] = img[0]
-            image[0:480, 640:1280, :] = img[1]
+                image[0:480, 0:640, :] = img[0]
+                image[0:480, 640:1280, :] = img[1]
 
-            image[480:960, 320:960, :] = img[2]
-            image[480:960, 960:1600, :] = img[3]
+                image[480:960, 320:960, :] = img[2]
+                image[480:960, 960:1600, :] = img[3]
 
-            cv2.imshow('webcams', image)
-            cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
+                cv2.imshow('webcams', image)
+                cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):                
-                cv2.destroyAllWindows()
-
-                folderNumber += 1
-                pauseThreads = True
-
-                if first:
-                    first = False
-                    print("Recording done.")
-                    input("Press Enter to start recording audio")
-                    print("Microphone is activated, recording...")
-                    print('Press Ctrl+C to stop the recording')
-                    res = folders[-1] +'audio'
-                    record_to_file(res + '.wav')
-                    print("Result written to " + str(res) + ".wav")
-                    input('Press Enter to record the driving session')
-                    pauseThreads = False 
-                else:
+                if cv2.waitKey(1) & 0xFF == ord('q'):                
+                    cv2.destroyAllWindows()
+                    stopRecording = True #closes all the threads
                     break
+
+            if recordingRound == 0: #if this is the first iteration, record audio
+                print("Recording done.")
+                input("Press Enter to start recording audio")
+                print("Microphone is activated, recording...")
+                print('Press Ctrl+C to stop the recording')
+                res = folders[-1] +'audio'
+                record_to_file(res + '.wav')
+                print("Audio recording done! Result written to " + str(res) + ".wav")
 
 
 folders = createFolders()
