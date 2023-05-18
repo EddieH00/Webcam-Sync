@@ -8,12 +8,14 @@ import wave
 import random
 import string
 import keyboard
+import pygetwindow as gw
+import pyautogui
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
-input_device = 4 
+input_device = 4
 
 from seekcamera import (
     SeekCameraIOType,
@@ -79,7 +81,7 @@ def on_event(camera, event_type, event_status, renderer):
     #print("{}: {}".format(str(event_type), camera.chipid))
 
     if event_type == SeekCameraManagerEvent.CONNECT:
-        print("Thermal camera ready")
+        print("Thermal camera ready...")
         if renderer.busy:
             return
 
@@ -184,8 +186,10 @@ def record():
                     channels=CHANNELS,
                     rate=RATE,
                     input=True,
-                    frames_per_buffer=CHUNK,
-                    input_device_index = input_device)
+                    frames_per_buffer=CHUNK)
+    #for a specific device number add: input_device_index = input_device
+    #no device number uses windows default
+
     frames = []
     try:
         while True:
@@ -235,6 +239,7 @@ def capture(folders):
 
     print('please wait for the webcams to open...')
 
+    folderNumber = 0 #to control which folder seek stores thermal images in
     first = True
     with SeekCameraManager(SeekCameraIOType.USB) as manager:
         # Start listening for events.
@@ -243,10 +248,11 @@ def capture(folders):
         image = np.zeros((960, 1920, 3), dtype='uint8')
         imgtemps = np.zeros((156,206), dtype='uint8')
         
+        #this line waits for all the webcams to load an image to proceed
         while not (img[0].any() and img[1].any() and img[2].any() and img[3].any()):
             pass
 
-        print('webcams ready. After the cameras open, press \'q\' to stop recording')
+        print('webcams ready. After the cameras open, click on the window, and then press \'q\' to stop recording')
         input("Press Enter to start recording")
 
         start = True
@@ -256,12 +262,12 @@ def capture(folders):
                     imgtemps = renderer.frame.data
                     capTime = time.time_ns()
                     imgName = str(capTime) +'.jpg'
-                    file = open(folders[0] + 'seek_temperatures/' + str(capTime) + '.csv', 'w')
+                    file = open(folders[folderNumber] + 'seek_temperatures/' + str(capTime) + '.csv', 'w')
                     np.savetxt(file, imgtemps, fmt="%.1f")
                     imgu8 = ((imgtemps-10)*256/40).astype(np.uint8)
                     imgjpg = cv2.applyColorMap(imgu8, cv2.COLORMAP_JET)
                     imgt_rescaled = cv2.resize(imgjpg, dsize=(640, 480))
-                    cv2.imwrite(folders[0] + 'seek_jpg/' + imgName, imgt_rescaled)
+                    cv2.imwrite(folders[folderNumber] + 'seek_jpg/' + imgName, imgt_rescaled)
                     image[0:480, 1280:, :] = imgt_rescaled[:,:,0:3]
 
             image[0:480, 0:640, :] = img[0]
@@ -272,11 +278,13 @@ def capture(folders):
 
             cv2.imshow('webcams', image)
             cv2.setWindowProperty('webcams', cv2.WND_PROP_TOPMOST, 1)
-            cv2.waitKey(1)
-            
-            if keyboard.is_pressed('q'):  
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):                
                 cv2.destroyAllWindows()
+
+                folderNumber += 1
                 pauseThreads = True
+
                 if first:
                     first = False
                     print("Recording done.")
@@ -294,6 +302,26 @@ def capture(folders):
 
 folders = createFolders()
 capture(folders)
+
+#######################################################################
+#bugs:
+#0 the audio is not recording properly still.
+#Things I've tried:
+#a few different sampling rates and channel combinations. These seem  to change the length of the recording which is... weird
+#using different device numbers that correspond to differnt API's (MME, Directsound, WASAPI, ASIO)
+#using no device number to use windows default and matching the settings 48000 hz, 2 channels 16 bit
+#
+#1. when capture folder is empty, the webcams open and then the program ends without capturing. Unable to replicate
+#2. there are white bars on webcam images. This appeared one day without changes to the code. Unknown cause
+#2a. update: they are gone now. But you can see how it looked in the capture folder. Gave me a damn heart attack, idk if they will com eback
+#3. Press q to close the cv2 window
+#3a. normal way is just cv2.waitKey(0) & 0xFF
+#       problem with this is that the lab technician needs to click on the cv2 window before pressing q works
+#3b. I changed it to  "if keyboard.is_pressed('q'):"
+#       this works when runnign from vscode terminal. However when running it from a .bat script, it causes problems.
+#       pressing q does not close unless you click the window first
+
+
 
 
 #source: https://roytuts.com/python-voice-recording-through-microphone-for-arbitrary-time-using-pyaudio/
